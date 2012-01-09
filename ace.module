@@ -1,0 +1,110 @@
+<?php
+function ace_menu() {
+  return array(
+    'admin/config/content/ace' => array(
+      'title' => t('Ace Editor'),
+      'description' => t('Configure Ace editor for different input formats.'),
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('ace_settings_form'),
+      'access arguments' => array('administer site configuration'),
+    ),
+  );
+}
+
+function ace_settings_form($form, $form_state) {
+  $modes = ace_modes();
+  $themes = ace_themes();
+  $mode_options = array();
+  $settings = unserialize(variable_get('ace_configuration', 'a:2:{s:6:"themes";a:1:{s:7:"default";s:5:"ace/theme/textmate";}s:5:"modes";a:1:{s:7:"default";s:5:"ace/mode/text";}}'));
+  foreach (array_keys($modes) as $mode) {
+    $mode_options[$mode] = $mode;
+  }
+  $theme_options = array();
+  foreach (array_keys($themes) as $theme) {
+    $theme_options[$theme] = $theme;
+  }
+  $form['ace_configuration'] = array(
+    '#type' => 'value',
+    '#value' => serialize($settings),
+  );
+  $form['default'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Default'),
+    'ace[modes][default]' => array(
+      '#type' => 'select',
+      '#options' => $mode_options,
+      '#default_value' => $settings['modes']['default'],
+    ),
+    'ace[themes][default]' => array(
+      '#type' => 'select',
+      '#options' => $theme_options,
+      '#default_value' => $settings['themes']['default'],
+    ),
+  );
+  foreach(filter_formats() as $id => $format) {
+    $form[$id] = array(
+      '#type' => 'fieldset',
+      '#title' => $format->name,
+      'ace[modes][' . $id . ']' => array(
+        '#type' => 'select',
+        '#options' => $mode_options,
+        '#default_value' => @$settings['modes'][$id],
+      ),
+      'ace[themes][' . $id . ']' => array(
+        '#type' => 'select',
+        '#options' => $theme_options,
+        '#default_value' => @$settings['themes'][$id],
+      ),
+    );
+  }
+  return system_settings_form($form);
+}
+
+function ace_settings_form_validate(&$form, &$form_state) {
+  foreach (array_keys($form_state['values']) as $key) {
+    if (preg_match('/^ace\[/', $key)) {
+      unset($form_state['values'][$key]);
+    }
+  }
+  $form_state['values']['ace_configuration'] = serialize($form_state['input']['ace']);
+}
+
+function ace_init() {
+  $settings = unserialize(variable_get('ace_configuration', 'a:2:{s:6:"themes";a:1:{s:7:"default";s:5:"ace/theme/textmate";}s:5:"modes";a:1:{s:7:"default";s:5:"ace/mode/text";}}'));
+  $themes = ace_themes();
+  $modes = ace_modes();
+  drupal_add_js('sites/all/libraries/ace/ace.js');
+  foreach ($settings['themes'] as $theme) {
+    drupal_add_js($themes[$theme]);
+  }
+  foreach ($settings['modes'] as $mode) {
+    drupal_add_js($modes[$mode]);
+  }
+  drupal_add_js(drupal_get_path('module', 'ace') . '/ace.js');
+  drupal_add_css(drupal_get_path('module', 'ace') . '/ace.css');
+  drupal_add_js(array('ace' => $settings), 'setting');
+}
+
+function ace_modes() {
+  $modefiles = glob('sites/all/libraries/ace/mode-*.js');
+  $modes = array();
+  foreach ($modefiles as $file) {
+    if (preg_match('/mode-(.*?).js$/', $file, $matches)) {
+      $modes['ace/mode/' . $matches[1]] = $file;
+    }
+  }
+  drupal_alter('ace_modes', $modes);
+  return $modes;
+}
+
+function ace_themes() {
+  $themefiles = glob('sites/all/libraries/ace/theme-*.js');
+  $themes = array();
+  foreach ($themefiles as $file) {
+    if (preg_match('/theme-(.*?).js$/', $file, $matches)) {
+      $themes['ace/theme/' . $matches[1]] = $file;
+    }
+  }
+  drupal_alter('ace_themes', $themes);
+  return $themes;
+}
