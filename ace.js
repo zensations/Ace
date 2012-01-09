@@ -1,13 +1,36 @@
 (function($){
   Drupal.behaviors.ace = {
     attach: function (context, settings) {
-      $('.form-textarea-wrapper', context).once().each(function(){
+      // process codeblocks
+      $('code', context).once().each(function(){
+        var code = $.trim($(this).text());
+        var lines = (code.split('\n'));
+        console.log(code.split('\n'));
+        var display_element = $('<div class="ace-display"></div>').insertAfter($(this).parent());
+        var display = ace.edit(display_element[0]);
+        display_element.css({
+          'height': display.renderer.lineHeight * code.split('\n').length,
+          'width': 'auto',
+          'position': 'relative'
+        });
+        display.getSession().setValue(code);
+        display.setShowPrintMargin(false);
+        display.setReadOnly(true);
+        display.setHighlightActiveLine(false);
+        var Mode = require('ace/mode/' + $(this).attr('data-language')).Mode;
+        if (Mode) {
+          display.getSession().setMode(new Mode());
+        }
+        $(this).parent().remove();
+      });
+      
+      // process all textareas
+      $('.form-textarea-wrapper', context).once().each(function() {
         var textarea = $(this).find('textarea');
 
         // build and append editor element
         var editor_element = $('<div class="ace-editor"></div>').insertAfter(textarea);
         var editor = ace.edit(editor_element[0]);
-        editor.setShowFoldWidgets(false);
         editor_element.css({
           'height': editor.renderer.lineHeight * $(textarea).attr('rows'),
           'width': 'auto',

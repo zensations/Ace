@@ -1,3 +1,7 @@
-.ace-editor {
+.ace-editor, .ace-display {
   border: 1px solid #CCC;
+}
+
+.ace-display {
+  margin: 1em 0em;
 }
