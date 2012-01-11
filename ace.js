@@ -1,11 +1,21 @@
-(function($){
+(function($) {
+  define('ace/toolbar/default', ['require', 'exports', 'module'], function(require, exports, module) {
+    var EmptyToolbar = function(element, editor) {
+      this.element = element;
+      this.editor = editor;
+      this.render = function() {
+        element.hide();
+      };
+    };
+    exports.Toolbar = EmptyToolbar;
+  });
+
   Drupal.behaviors.ace = {
     attach: function (context, settings) {
       // process codeblocks
-      $('code', context).once().each(function(){
+      $('code.drupdown-code', context).once().each(function() {
         var code = $.trim($(this).text());
         var lines = (code.split('\n'));
-        console.log(code.split('\n'));
         var display_element = $('<div class="ace-display"></div>').insertAfter($(this).parent());
         var display = ace.edit(display_element[0]);
         display_element.css({
@@ -17,9 +27,11 @@
         display.setShowPrintMargin(false);
         display.setReadOnly(true);
         display.setHighlightActiveLine(false);
-        var Mode = require('ace/mode/' + $(this).attr('data-language')).Mode;
-        if (Mode) {
-          display.getSession().setMode(new Mode());
+        if ($(this).attr('data-language')) {
+          var Mode = require('ace/mode/' + $(this).attr('data-language')).Mode;
+          if (Mode) {
+            display.getSession().setMode(new Mode());
+          }
         }
         $(this).parent().remove();
       });
@@ -30,6 +42,7 @@
 
         // build and append editor element
         var editor_element = $('<div class="ace-editor"></div>').insertAfter(textarea);
+        var toolbar_element = $('<div class="ace-toolbar ui-widget-header ui-corner-all"></div>').insertBefore(editor_element);
         var editor = ace.edit(editor_element[0]);
         editor_element.css({
           'height': editor.renderer.lineHeight * $(textarea).attr('rows'),
@@ -40,11 +53,17 @@
         // hide print margin - we use full textarea width
         editor.setShowPrintMargin(false);
 
+        // don't display a gutter. non-programmers won't know what it means
+        editor.renderer.setShowGutter(false);
+
         // enable word wrap
         editor.getSession().setUseWrapMode(true);
 
         // use soft tabs
         editor.getSession().setUseSoftTabs(true);
+
+        // don't highlight line. see "showGutter"
+        editor.setHighlightActiveLine(false);
 
         // sync with actual textarea
         editor.getSession().setValue($(textarea).val());
@@ -64,16 +83,25 @@
           input_mode = $(this).val();
           $(this).change(function(){
             input_mode = $(this).val();
-            applyThemeAndMode(settings.ace.themes[input_mode], settings.ace.modes[input_mode]);
+            $.each((require(settings.ace.modes[input_mode]) || {}), function(name, mode) {
+              editor.getSession().setMode(new mode());
+            });
           });
         });
-        applyThemeAndMode(settings.ace.themes[input_mode], settings.ace.modes[input_mode]);
 
-        function applyThemeAndMode(theme, mode) {
-          editor.setTheme(theme);
-          var Mode = require(mode).Mode;
-          editor.getSession().setMode(new Mode());
-        }
+        editor.setTheme(settings.ace.theme);
+
+        $.each((require(settings.ace.keybinding) || {}), function(name, keybinding) {
+          editor.setKeyboardHandler(keybinding);
+        });
+
+        $.each((require(settings.ace.toolbars[input_mode]) || {}), function(name, Toolbar) {
+          (new Toolbar(toolbar_element, editor)).render();
+        });
+
+        $.each((require(settings.ace.modes[input_mode]) || {}), function(name, mode) {
+          editor.getSession().setMode(new mode());
+        });
 
         // append our own grippie
         // copied form textarea.js

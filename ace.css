@@ -5,3 +5,13 @@
 .ace-display {
   margin: 1em 0em;
 }
+
+.ace-toolbar {
+  padding: 0.3em;
+  margin-bottom: 0.3em;
+}
+
+.ace-toolbar .ui-button .ui-button-text {
+  line-height: 1;
+  font-size: 0.8em;
+}
