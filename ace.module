@@ -1,4 +1,118 @@
 <?php
+define('ACE_VERSION', '0.2.0');
+
+function ace_element_info_alter(&$elements) {
+  $elements['textarea']['#after_build'][] = 'ace_after_build_textarea';
+  $elements['text_format']['#after_build'][] = 'ace_after_build_text_format';
+}
+
+function ace_library() {
+  $ace_path = variable_get('ace_path', 'sites/all/libraries/ace');
+  $libraries = array();
+  $libraries['ace'] = array(
+    'title' => 'ace',
+    'version' => ACE_VERSION,
+    'js' => array(
+      $ace_path . '/ace.js' => array(),
+    ),
+  );
+  $libraries['ace.drupal'] = array(
+    'title' => 'ace.drupal',
+    'version' => ACE_VERSION,
+    'js' => array(
+      drupal_get_path('module', 'ace') . '/ace.js' => array(),
+    ),
+    'css' => array(
+      drupal_get_path('module', 'ace') . '/ace.css' => array(),
+    ),
+    'dependencies' => array(
+      array('ace', 'ace'),
+    ),
+  );
+  $ace_plugins = ace_get_plugins();
+  foreach ($ace_plugins as $key => $component) {
+    foreach ($component as $id => $plugin) {
+      if (!is_array(@$plugin['attached'])) {
+        $plugin['attached'] = array();
+      }
+      $plugin['attached'] += array(
+        'js' => array(),
+        'css' => array(),
+        'library' => array(),
+      );
+      $lib = array(
+        'title' => $id,
+        'version' => ACE_VERSION,
+        'dependencies' => array(
+          array('ace', 'ace.drupal'),
+        ),
+      );
+      foreach ($plugin['attached']['library'] as $dep) {
+        $lib['dependencies'][] = $dep;
+      }
+      foreach (array('js', 'css') as $type) {
+        foreach ($plugin['attached'][$type] as $data => $options) {
+          if (!is_array($options)) {
+            $data = $options;
+            $options = array();
+          }
+          if (is_numeric($data)) {
+            $data = $options['data'];
+          }
+          $lib[$type][$data] = $options;
+        }
+      }
+      $libraries['ace.' . $key . '.' . $id] = $lib;
+    }
+  }
+  return $libraries;
+}
+
+function ace_after_build_textarea($element) {
+  if (array_key_exists('#ace_format', $element)) {
+    $format = $element['#ace_format'];
+    $element['#attributes']['data-ace-format'] = $format;
+    $settings = ace_user_settings();
+    $ace_plugins = ace_get_plugins();
+    foreach ($settings as $component => $setting) {
+      $lib = 'ace.' . $component . '.';
+      if (array_key_exists($format, $setting)) {
+        $lib .= $setting[$format];
+      } else {
+        $lib .= 'default';
+      }
+      $element['#attached']['library'][] = array('ace', $lib);
+    }
+  }
+  return $element;
+}
+
+function ace_after_build_text_format($element) {
+  if (array_key_exists('format', $element)) {
+    $default_format = $element['#format'];
+    $formats = array_keys($element['format']['format']['#options']);
+    $settings = ace_user_settings();
+    foreach ($settings as $component => $setting) {
+      foreach ($formats as $format) {
+        $lib = 'ace.' . $component . '.';
+        if (array_key_exists($format, $setting)) {
+          $lib .= $setting[$format];
+        } else {
+          $lib .= 'default';
+        }
+        $element['#attached']['library'][] = array('ace', $lib);
+      }
+    }
+    foreach (array_keys($element) as $key) {
+      if ($key[0] != '#' && @$element[$key]['#type'] == 'textarea') {
+        $element[$key]['#ace_processed'] = TRUE;
+      }
+    }
+    $element['#attributes']['class'][] = 'ace-editor';
+  }
+  return $element;
+}
+
 function ace_menu() {
   return array(
     'admin/config/content/ace' => array(
@@ -42,13 +156,13 @@ function ace_form_user_profile_form_alter(&$form, &$form_state) {
           '#type' => 'select',
           '#title' => t('Theme'),
           '#options' => $themes,
-          '#default_value' => $settings['theme'],
+          '#default_value' => $settings['themes']['default'],
         ),
         'ace_keybinding' => array(
           '#type' => 'select',
           '#title' => t('Keybinding'),
           '#options' => $keybindings,
-          '#default_value' => $settings['keybinding'],
+          '#default_value' => $settings['keybindings']['default'],
         ),
       );
     }
@@ -63,14 +177,23 @@ function ace_user_presave(&$edit, $account, $category) {
 function _ace_default() {
   return array(
     'modes' => array(
-      'default' => 'ace/mode/text',
+      'default' => 'text',
     ),
     'toolbars' => array(
-      'default' => 'ace/toolbar/default',
+      'default' => 'default',
     ),
-    'theme' => 'ace/theme/textmate',
-    'keybinding' => 'ace/keyboard/keybinding/default',
+    'themes' => array(
+      'default' => 'textmate',
+    ),
+    'keybindings' => array(
+      'default' => 'default',
+    ),
   );
+}
+
+function ace_init() {
+  $settings = ace_user_settings();
+  drupal_add_js(array('ace' => $settings), 'setting');
 }
 
 function ace_settings() {
@@ -83,10 +206,10 @@ function ace_user_settings() {
   $settings = ace_settings();
   global $user;
   if ($user->data && array_key_exists('ace_theme', $user->data)) {
-    $settings['theme'] = $user->data['ace_theme'];
+    $settings['themes']['default'] = $user->data['ace_theme'];
   }
   if ($user->data && array_key_exists('ace_keybinding', $user->data)) {
-    $settings['keybinding'] = $user->data['ace_keybinding'];
+    $settings['keybindings']['default'] = $user->data['ace_keybinding'];
   }
   return $settings;
 }
@@ -94,21 +217,27 @@ function ace_user_settings() {
 function ace_settings_form($form, $form_state) {
   $settings = ace_settings();
   $modes = array();
-  foreach (ace_modes() as $key => $mode) {
+  $ace_plugins = ace_get_plugins();
+  foreach ($ace_plugins['modes'] as $key => $mode) {
     $modes[$key] = $mode['title'];
   }
   $toolbars = array();
-  foreach (ace_toolbars() as $key => $toolbar) {
+  foreach ($ace_plugins['toolbars'] as $key => $toolbar) {
     $toolbars[$key] = $toolbar['title'];
   }
   $themes = array();
-  foreach (ace_themes() as $key => $theme) {
+  foreach ($ace_plugins['themes'] as $key => $theme) {
     $themes[$key] = $theme['title'];
   }
   $keybindings = array();
-  foreach (ace_keybindings() as $key => $keybinding) {
+  foreach ($ace_plugins['keybindings'] as $key => $keybinding) {
     $keybindings[$key] = $keybinding['title'];
   }
+  $form['ace_path'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Ace library path'),
+    '#default_value' => variable_get('ace_path', 'sites/all/libraries/ace'),
+  );
   $form['ace_configuration'] = array(
     '#type' => 'value',
     '#value' => serialize($settings),
@@ -126,15 +255,15 @@ function ace_settings_form($form, $form_state) {
       '#options' => $toolbars,
       '#default_value' => $settings['toolbars']['default'],
     ),
-    'ace[theme]' => array(
+    'ace[themes][default]' => array(
       '#type' => 'select',
       '#options' => $themes,
-      '#default_value' => $settings['theme'],
+      '#default_value' => $settings['themes']['default'],
     ),
-    'ace[keybinding]' => array(
+    'ace[keybindings][default]' => array(
       '#type' => 'select',
       '#options' => $keybindings,
-      '#default_value' => $settings['keybinding'],
+      '#default_value' => $settings['keybindings']['default'],
     ),
   );
   foreach (filter_formats() as $id => $format) {
@@ -165,96 +294,85 @@ function ace_settings_form_validate(&$form, &$form_state) {
   $form_state['values']['ace_configuration'] = serialize($form_state['input']['ace']);
 }
 
-function ace_init() {
-  $settings = ace_user_settings();
-  $themes = ace_themes();
-  $modes = ace_modes();
-  $keybindings = ace_keybindings();
-  $toolbars = ace_toolbars();
-  drupal_add_library('system', 'ui.button');
-  drupal_add_library('system', 'ui.dialog');
-  drupal_add_library('system', 'effects.fade');
-  drupal_add_js('sites/all/libraries/ace/ace.js');
-  drupal_add_js(drupal_get_path('module', 'ace') . '/ace.js');
-  if (array_key_exists($settings['theme'], $themes)
-    && $themes[$settings['theme']]['file']) {
-    drupal_add_js($themes[$settings['theme']]['file']);
-  }
-  if (array_key_exists($settings['keybinding'], $keybindings)
-    && $keybindings[$settings['keybinding']]['file']) {
-    drupal_add_js($keybindings[$settings['keybinding']]['file']);
-  }
-  foreach ($settings['modes'] as $mode) {
-    if (array_key_exists($mode, $modes) && $modes[$mode]['file']) {
-      drupal_add_js($modes[$mode]['file']);
-    }
-  }
-
-  foreach ($settings['toolbars'] as $toolbar) {
-    if (array_key_exists($toolbar, $toolbars) && $toolbars[$toolbar]['file']) {
-      drupal_add_js($toolbars[$toolbar]['file']);
-    }
-  }
-  drupal_add_css(drupal_get_path('module', 'ace') . '/ace.css');
-  drupal_add_js(array('ace' => $settings), 'setting');
+function ace_get_plugins() {
+  $plugins = array(
+    'modes' => _ace_modes(),
+    'themes' => _ace_themes(),
+    'toolbars' => _ace_toolbars(),
+    'keybindings' => _ace_keybindings(),
+  );
+  $plugins['modes'] = _ace_modes();
+  drupal_alter('ace_plugins', $plugins);
+  return $plugins;
 }
 
-function ace_modes() {
-  $modefiles = glob('sites/all/libraries/ace/mode-*.js');
+function _ace_modes() {
+  $ace_path = variable_get('ace_path', 'sites/all/libraries/ace');
+  $modefiles = glob($ace_path . '/mode-*.js');
   $modes = array();
   foreach ($modefiles as $file) {
     if (preg_match('/mode-(.*?).js$/', $file, $matches)) {
-      $modes['ace/mode/' . $matches[1]] = array(
+      $modes[$matches[1]] = array(
         'title' => $matches[1],
-        'file' => $file,
+        'module' => 'ace/mode/' . $matches[1],
+        'attached' => array(
+          'js' => array($file),
+        ),
       );
     }
   }
-  drupal_alter('ace_modes', $modes);
   return $modes;
 }
 
-function ace_themes() {
-  $themefiles = glob('sites/all/libraries/ace/theme-*.js');
+function _ace_themes() {
+  $ace_path = variable_get('ace_path', 'sites/all/libraries/ace');
+  $themefiles = glob($ace_path . '/theme-*.js');
   $themes = array();
   foreach ($themefiles as $file) {
     if (preg_match('/theme-(.*?).js$/', $file, $matches)) {
-      $themes['ace/theme/' . $matches[1]] = array(
+      $themes[$matches[1]] = array(
         'title' => $matches[1],
-        'file' => $file,
+        'module' => 'ace/theme/' . $matches[1],
+        'attached' => array(
+          'js' => array($file),
+        ),
       );
     }
   }
-  drupal_alter('ace_themes', $themes);
   return $themes;
 }
 
-function ace_toolbars() {
+function _ace_toolbars() {
   $toolbars = array(
-    'ace/toolbar/default' => array(
+    'default' => array(
       'title' => t('No toolbar'),
-      'file' => FALSE,
+      'module' => 'ace/toolbar/default',
     ),
   );
-  drupal_alter('ace_toolbars', $toolbars);
   return $toolbars;
 }
 
-function ace_keybindings() {
+function _ace_keybindings() {
+  $ace_path = variable_get('ace_path', 'sites/all/libraries/ace');
   $keybindings = array(
-    'ace/keyboard/keybinding/default' => array(
+    'default' => array(
       'title' => t('Default'),
-      'file' => FALSE,
+      'module' => 'ace/keyboard/keybinding/default',
     ),
-    'ace/keyboard/keybinding/vim' => array(
+    'vim' => array(
       'title' => t('Vim'),
-      'file' => 'sites/all/libraries/ace/keybinding-vim.js',
+      'module' => 'ace/keyboard/keybinding/vim',
+      'attached' => array(
+        'js' => array($ace_path . '/keybinding-vim.js'),
+      ),
     ),
-    'ace/keyboard/keybinding/emacs' => array(
+    'emacs' => array(
       'title' => t('Emacs'),
-      'file' => 'sites/all/libraries/ace/keybinding-emacs.js',
+      'module' => 'ace/keyboard/keybinding/emacs',
+      'attached' => array(
+        'js' => array($ace_path . '/keybinding-emacs.js'),
+      ),
     ),
   );
-  drupal_alter('ace_keybindings', $keybindings);
   return $keybindings;
 }

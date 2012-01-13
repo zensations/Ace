@@ -7,11 +7,6 @@
 }
 
 .ace-toolbar {
-  padding: 0.3em;
+  padding: 0.2em;
   margin-bottom: 0.3em;
-}
-
-.ace-toolbar .ui-button .ui-button-text {
-  line-height: 1;
-  font-size: 0.8em;
 }

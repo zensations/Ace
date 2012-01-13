@@ -77,31 +77,33 @@
           editor.resize();
         });
 
+        function setupEditor(mode) {
+          editor.setTheme('ace/theme/' + settings.ace.themes.default);
+          $.each((require('ace/keyboard/keybinding/' + settings.ace.keybindings.default) || {}), function(name, keybinding) {
+            editor.setKeyboardHandler(keybinding);
+          });
+          toolbar_element.children().remove();
+          toolbar_element.show();
+          $.each((require('ace/toolbar/' + settings.ace.toolbars[mode]) || {}), function(name, Toolbar) {
+            (new Toolbar(toolbar_element, editor)).render();
+          });
+          $.each((require('ace/mode/' + settings.ace.modes[mode]) || {}), function(name, mode) {
+            editor.getSession().setMode(new mode());
+          });
+        }
         // themes and modes
         var input_mode = 'default';
+        if ($(textarea).attr('data-ace-format')) {
+          input_mode = $(textarea).attr('data-ace-format');
+        }
         $('select.filter-list', $(this).parents('.text-format-wrapper')).each(function() {
           input_mode = $(this).val();
           $(this).change(function(){
             input_mode = $(this).val();
-            $.each((require(settings.ace.modes[input_mode]) || {}), function(name, mode) {
-              editor.getSession().setMode(new mode());
-            });
+            setupEditor(input_mode);
           });
         });
-
-        editor.setTheme(settings.ace.theme);
-
-        $.each((require(settings.ace.keybinding) || {}), function(name, keybinding) {
-          editor.setKeyboardHandler(keybinding);
-        });
-
-        $.each((require(settings.ace.toolbars[input_mode]) || {}), function(name, Toolbar) {
-          (new Toolbar(toolbar_element, editor)).render();
-        });
-
-        $.each((require(settings.ace.modes[input_mode]) || {}), function(name, mode) {
-          editor.getSession().setMode(new mode());
-        });
+        setupEditor(input_mode);
 
         // append our own grippie
         // copied form textarea.js
