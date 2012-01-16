@@ -83,8 +83,10 @@
         });
 
         function setupEditor(mode) {
-          editor.setTheme('ace/theme/' + settings.ace.themes.default);
-          $.each((require('ace/keyboard/keybinding/' + settings.ace.keybindings.default) || {}), function(name, keybinding) {
+          $.each((require('ace/theme/' + settings.ace.themes[mode]) || {}), function(){
+            editor.setTheme('ace/theme/' + settings.ace.themes[mode]);
+          });
+          $.each((require('ace/keyboard/keybinding/' + settings.ace.keybindings[mode]) || {}), function(name, keybinding) {
             editor.setKeyboardHandler(keybinding);
           });
           toolbar_element.children().remove();

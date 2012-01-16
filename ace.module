@@ -6,6 +6,14 @@ function ace_element_info_alter(&$elements) {
   $elements['text_format']['#after_build'][] = 'ace_after_build_text_format';
 }
 
+function ace_theme() {
+  return array(
+    'ace_input_formats' => array(
+      'render element' => 'form',
+    ),
+  );
+}
+
 function ace_library() {
   $ace_path = variable_get('ace_path', 'sites/all/libraries/ace');
   $libraries = array();
@@ -138,40 +146,23 @@ function ace_form_user_profile_form_alter(&$form, &$form_state) {
   if ($form['#user_category'] == 'account') {
     $account = $form['#user'];
     if (user_access('use ace editor', $account)) {
-      $settings = ace_user_settings();
-      $themes = array();
-      foreach (ace_themes() as $key => $theme) {
-        $themes[$key] = $theme['title'];
-      }
-      $keybindings = array();
-      foreach (ace_keybindings() as $key => $keybinding) {
-        $keybindings[$key] = $keybinding['title'];
-      }
-      $form['ace_editor'] = array(
+      $form['ace_settings'] = array(
         '#type' => 'fieldset',
-        '#title' => t('Ace Editor'),
+        '#title' => t('Ace editor settings'),
         '#collapsible' => TRUE,
-        '#collapsed' => FALSE,
-        'ace_theme' => array(
-          '#type' => 'select',
-          '#title' => t('Theme'),
-          '#options' => $themes,
-          '#default_value' => $settings['themes']['default'],
-        ),
-        'ace_keybinding' => array(
-          '#type' => 'select',
-          '#title' => t('Keybinding'),
-          '#options' => $keybindings,
-          '#default_value' => $settings['keybindings']['default'],
-        ),
+        'input_formats' => _ace_input_formats(ace_user_settings()),
       );
     }
   }
+  $form['#validate'][] = 'ace_form_user_profile_form_validate';
+}
+
+function ace_form_user_profile_form_validate(&$form, &$form_state) {
+  $form_state['values']['ace'] = serialize($form_state['input']['ace']);
 }
 
 function ace_user_presave(&$edit, $account, $category) {
-  $edit['data']['ace_theme'] = $edit['ace_theme'];
-  $edit['data']['ace_keybinding'] = $edit['ace_keybinding'];
+  $edit['data']['ace'] = $edit['ace'];
 }
 
 function _ace_default() {
@@ -198,91 +189,96 @@ function ace_init() {
 
 function ace_settings() {
   $global = unserialize(variable_get('ace_configuration', serialize(array())));
-  $settings = array_merge(_ace_default(), $global);
+  $settings = _ace_settings_merge(_ace_default(), $global);
   return $settings;
 }
 
 function ace_user_settings() {
   $settings = ace_settings();
   global $user;
-  if ($user->data && array_key_exists('ace_theme', $user->data)) {
-    $settings['themes']['default'] = $user->data['ace_theme'];
-  }
-  if ($user->data && array_key_exists('ace_keybinding', $user->data)) {
-    $settings['keybindings']['default'] = $user->data['ace_keybinding'];
+  if ($user->data && array_key_exists('ace', $user->data)) {
+    $settings = _ace_settings_merge($settings, unserialize($user->data['ace']));
   }
   return $settings;
 }
 
+function _ace_settings_merge($a, $b) {
+  foreach ($b as $comp => $modes) {
+    foreach ($modes as $mode => $setting) {
+      $a[$comp][$mode] = $setting;
+    }
+  }
+  return $a;
+}
+
 function ace_settings_form($form, $form_state) {
   $settings = ace_settings();
-  $modes = array();
-  $ace_plugins = ace_get_plugins();
-  foreach ($ace_plugins['modes'] as $key => $mode) {
-    $modes[$key] = $mode['title'];
-  }
-  $toolbars = array();
-  foreach ($ace_plugins['toolbars'] as $key => $toolbar) {
-    $toolbars[$key] = $toolbar['title'];
-  }
-  $themes = array();
-  foreach ($ace_plugins['themes'] as $key => $theme) {
-    $themes[$key] = $theme['title'];
-  }
-  $keybindings = array();
-  foreach ($ace_plugins['keybindings'] as $key => $keybinding) {
-    $keybindings[$key] = $keybinding['title'];
-  }
+  $form['ace_configuration'] = array(
+    '#type' => 'value',
+    '#value' => serialize($settings),
+  );
   $form['ace_path'] = array(
     '#type' => 'textfield',
     '#title' => t('Ace library path'),
     '#default_value' => variable_get('ace_path', 'sites/all/libraries/ace'),
   );
-  $form['ace_configuration'] = array(
-    '#type' => 'value',
-    '#value' => serialize($settings),
-  );
-  $form['default'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Default'),
-    'ace[modes][default]' => array(
-      '#type' => 'select',
-      '#options' => $modes,
-      '#default_value' => $settings['modes']['default'],
-    ),
-    'ace[toolbars][default]' => array(
-      '#type' => 'select',
-      '#options' => $toolbars,
-      '#default_value' => $settings['toolbars']['default'],
-    ),
-    'ace[themes][default]' => array(
-      '#type' => 'select',
-      '#options' => $themes,
-      '#default_value' => $settings['themes']['default'],
-    ),
-    'ace[keybindings][default]' => array(
-      '#type' => 'select',
-      '#options' => $keybindings,
-      '#default_value' => $settings['keybindings']['default'],
-    ),
-  );
-  foreach (filter_formats() as $id => $format) {
-    $form[$id] = array(
-      '#type' => 'fieldset',
-      '#title' => $format->name,
-      'ace[modes][' . $id . ']' => array(
-        '#type' => 'select',
-        '#options' => $modes,
-        '#default_value' => @$settings['modes'][$id],
-      ),
-      'ace[toolbars][' . $id . ']' => array(
-        '#type' => 'select',
-        '#options' => $toolbars,
-        '#default_value' => @$settings['toolbars'][$id],
-      ),
-    );
-  }
+  $form['input_formats'] = _ace_input_formats($settings);
+  $form['#theme'] = 'ace_settings';
   return system_settings_form($form);
+}
+
+function _ace_input_formats($settings) {
+  $components = array('modes', 'toolbars', 'themes', 'keybindings');
+  $formats = filter_formats() + array(
+    'default' => (object) array('name' => 'default'),
+  );
+  $ace_plugins = ace_get_plugins();
+  $options = array();
+  foreach ($ace_plugins as $component => $plugins) {
+    foreach ($plugins as $key => $plugin) {
+      $options[$component][$key] = $plugin['title'];
+    }
+  }
+
+  $input_formats['#theme'] = 'ace_input_formats';
+  foreach ($formats as $id => $format) {
+    $form['input_modes'][$id] = array(
+      '#title' => $format->name,
+    );
+    foreach ($components as $component) {
+      $input_formats[$id][$component] = array(
+        '#name' => 'ace[' . $component . '][' . $id . ']',
+        '#type' => 'select',
+        '#options' => $options[$component],
+        '#default_value' => @$settings[$component][$id],
+      );
+    }
+  }
+  return $input_formats;
+}
+
+function theme_ace_input_formats($form) {
+  $table = array(
+    'header' => array(
+      t('Text format'),
+      t('Language'),
+      t('Toolbar'),
+      t('Theme'),
+      t('Keybinding'),
+    ),
+  );
+  $formats = filter_formats() + array(
+    'default' => (object) array('name' => 'default'),
+  );
+  foreach ($formats as $key => $format) {
+    $table['rows'][$key] = array(
+      'format' => $format->name,
+    );
+    foreach (array('modes', 'toolbars', 'themes', 'keybindings') as $component) {
+      $table['rows'][$key][$component] = drupal_render($form['form'][$key][$component]);
+    }
+  }
+  return theme('table', $table);
 }
 
 function ace_settings_form_validate(&$form, &$form_state) {
