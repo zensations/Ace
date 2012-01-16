@@ -1,8 +1,10 @@
 (function($) {
   define('ace/toolbar/default', ['require', 'exports', 'module'], function(require, exports, module) {
-    var EmptyToolbar = function(element, editor) {
+    var EmptyToolbar = function(element, editor, field_name, format) {
       this.element = element;
       this.editor = editor;
+      this.field_name = field_name;
+      this.format = format;
       this.render = function() {
         element.hide();
       };
@@ -39,7 +41,10 @@
       // process all textareas
       $('.form-textarea-wrapper', context).once().each(function() {
         var textarea = $(this).find('textarea');
-
+        var field_name = textarea.attr('name')
+          .replace(/^(.*?)\[.*$/, function(str, field_name){
+            return field_name;
+          });
         // build and append editor element
         var editor_element = $('<div class="ace-editor"></div>').insertAfter(textarea);
         var toolbar_element = $('<div class="ace-toolbar ui-widget-header ui-corner-all"></div>').insertBefore(editor_element);
@@ -85,7 +90,7 @@
           toolbar_element.children().remove();
           toolbar_element.show();
           $.each((require('ace/toolbar/' + settings.ace.toolbars[mode]) || {}), function(name, Toolbar) {
-            (new Toolbar(toolbar_element, editor)).render();
+            (new Toolbar(toolbar_element, editor, field_name, mode)).render();
           });
           $.each((require('ace/mode/' + settings.ace.modes[mode]) || {}), function(name, mode) {
             editor.getSession().setMode(new mode());
