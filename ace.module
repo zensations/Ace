@@ -1,11 +1,14 @@
 <?php
+/**
+ * @file
+ * ace module primary implementation file 
+ */
 define('ACE_VERSION', '0.2.0');
 
-function ace_element_info_alter(&$elements) {
-  $elements['textarea']['#after_build'][] = 'ace_after_build_textarea';
-  $elements['text_format']['#after_build'][] = 'ace_after_build_text_format';
-}
-
+/**
+ * Implements hook_theme().
+ * Adds a theme callback for input format configuration tables.
+ */
 function ace_theme() {
   return array(
     'ace_input_formats' => array(
@@ -14,6 +17,10 @@ function ace_theme() {
   );
 }
 
+/**
+ * Implements hook_library().
+ * Auto-generates library entries for all ace plugins.
+ */
 function ace_library() {
   $ace_path = variable_get('ace_path', 'sites/all/libraries/ace');
   $libraries = array();
@@ -29,6 +36,7 @@ function ace_library() {
     'version' => ACE_VERSION,
     'js' => array(
       drupal_get_path('module', 'ace') . '/ace.js' => array(),
+      drupal_get_path('module', 'ace') . '/toolbar.js' => array(),
     ),
     'css' => array(
       drupal_get_path('module', 'ace') . '/ace.css' => array(),
@@ -76,6 +84,15 @@ function ace_library() {
   return $libraries;
 }
 
+/**
+ * Implements hook_element_info_alter().
+ * Adds #after_build hooks to textarea and text_format themes.
+ */
+function ace_element_info_alter(&$elements) {
+  $elements['textarea']['#after_build'][] = 'ace_after_build_textarea';
+  $elements['text_format']['#after_build'][] = 'ace_after_build_text_format';
+}
+
 function ace_after_build_textarea($element) {
   if (array_key_exists('#ace_format', $element)) {
     $format = $element['#ace_format'];
@@ -121,6 +138,9 @@ function ace_after_build_text_format($element) {
   return $element;
 }
 
+/**
+ * Implements hook_menu().
+ */
 function ace_menu() {
   return array(
     'admin/config/content/ace' => array(
@@ -133,6 +153,9 @@ function ace_menu() {
   );
 }
 
+/**
+ * Implements hook_permission().
+ */
 function ace_permission() {
   return array(
     'use ace editor' => array(
@@ -142,6 +165,9 @@ function ace_permission() {
   );
 }
 
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
 function ace_form_user_profile_form_alter(&$form, &$form_state) {
   if ($form['#user_category'] == 'account') {
     $account = $form['#user'];
@@ -157,10 +183,16 @@ function ace_form_user_profile_form_alter(&$form, &$form_state) {
   $form['#validate'][] = 'ace_form_user_profile_form_validate';
 }
 
+/**
+ * Validation hook for user profile forms.
+ */
 function ace_form_user_profile_form_validate(&$form, &$form_state) {
   $form_state['values']['ace'] = serialize($form_state['input']['ace']);
 }
 
+/**
+ * Implements hook_user_presave().
+ */
 function ace_user_presave(&$edit, $account, $category) {
   $edit['data']['ace'] = $edit['ace'];
 }
