@@ -17,71 +17,34 @@ function ace_theme() {
   );
 }
 
+function ace_requirejs_paths() {
+  return array(
+    'ace' => 'sites/all/libraries/ace/lib/ace',
+    'ace/toolbar/default' => drupal_get_path('module', 'ace') . '/toolbar',
+    'ace/keyboard/keybinding/default' => drupal_get_path('module', 'ace') . '/keybinding',
+  );
+}
+
 /**
  * Implements hook_library().
  * Auto-generates library entries for all ace plugins.
  */
 function ace_library() {
-  $ace_path = variable_get('ace_path', 'sites/all/libraries/ace');
-  $libraries = array();
-  $libraries['ace'] = array(
-    'title' => 'ace',
-    'version' => ACE_VERSION,
-    'js' => array(
-      $ace_path . '/ace.js' => array(),
+  return array(
+    'ace' => array(
+      'version' => '0.2.0',
+      'js' => array(
+        drupal_get_path('module', 'ace') . '/ace.js' => array(),
+      ),
+      'css' => array(
+        drupal_get_path('module', 'ace') . '/ace.css' => array(),
+      ),
+      'dependencies' => array(
+        array('requirejs', 'requirejs'),
+        array('system', 'ui.button'),
+      ),
     ),
   );
-  $libraries['ace.drupal'] = array(
-    'title' => 'ace.drupal',
-    'version' => ACE_VERSION,
-    'js' => array(
-      drupal_get_path('module', 'ace') . '/ace.js' => array(),
-      drupal_get_path('module', 'ace') . '/toolbar.js' => array(),
-    ),
-    'css' => array(
-      drupal_get_path('module', 'ace') . '/ace.css' => array(),
-    ),
-    'dependencies' => array(
-      array('ace', 'ace'),
-    ),
-  );
-  $ace_plugins = ace_get_plugins();
-  foreach ($ace_plugins as $key => $component) {
-    foreach ($component as $id => $plugin) {
-      if (!is_array(@$plugin['attached'])) {
-        $plugin['attached'] = array();
-      }
-      $plugin['attached'] += array(
-        'js' => array(),
-        'css' => array(),
-        'library' => array(),
-      );
-      $lib = array(
-        'title' => $id,
-        'version' => ACE_VERSION,
-        'dependencies' => array(
-          array('ace', 'ace.drupal'),
-        ),
-      );
-      foreach ($plugin['attached']['library'] as $dep) {
-        $lib['dependencies'][] = $dep;
-      }
-      foreach (array('js', 'css') as $type) {
-        foreach ($plugin['attached'][$type] as $data => $options) {
-          if (!is_array($options)) {
-            $data = $options;
-            $options = array();
-          }
-          if (is_numeric($data)) {
-            $data = $options['data'];
-          }
-          $lib[$type][$data] = $options;
-        }
-      }
-      $libraries['ace.' . $key . '.' . $id] = $lib;
-    }
-  }
-  return $libraries;
 }
 
 /**
@@ -96,46 +59,38 @@ function ace_element_info_alter(&$elements) {
 function ace_after_build_textarea($element) {
   if (array_key_exists('#ace_format', $element)) {
     $format = $element['#ace_format'];
-    $element['#attributes']['data-ace-format'] = $format;
-    $settings = ace_user_settings();
-    $ace_plugins = ace_get_plugins();
-    foreach ($settings as $component => $setting) {
-      $lib = 'ace.' . $component . '.';
-      if (array_key_exists($format, $setting)) {
-        $lib .= $setting[$format];
-      } else {
-        $lib .= 'default';
-      }
-      $element['#attached']['library'][] = array('ace', $lib);
-    }
+    $element['#attributes']['data-ace-format'] = $element['#ace_format'];
+    $element['#attached']['library'][] = array('ace', 'ace');
+    $attach = _ace_attachments(array($format));
+    $element['#attached'] = array_merge_recursive($element['#attached'], $attach);
   }
   return $element;
 }
 
 function ace_after_build_text_format($element) {
   if (array_key_exists('format', $element)) {
-    $default_format = $element['#format'];
+    $element['#attached']['library'][] = array('ace', 'ace');
     $formats = array_keys($element['format']['format']['#options']);
-    $settings = ace_user_settings();
-    foreach ($settings as $component => $setting) {
-      foreach ($formats as $format) {
-        $lib = 'ace.' . $component . '.';
-        if (array_key_exists($format, $setting)) {
-          $lib .= $setting[$format];
-        } else {
-          $lib .= 'default';
-        }
-        $element['#attached']['library'][] = array('ace', $lib);
-      }
-    }
-    foreach (array_keys($element) as $key) {
-      if ($key[0] != '#' && @$element[$key]['#type'] == 'textarea') {
-        $element[$key]['#ace_processed'] = TRUE;
-      }
-    }
-    $element['#attributes']['class'][] = 'ace-editor';
+    $attach = _ace_attachments($formats);
+    $element['#attached'] = array_merge_recursive($element['#attached'], $attach);
   }
   return $element;
+}
+
+function _ace_attachments($formats = array()) {
+  $plugins = ace_get_plugins();
+  $settings = ace_user_settings();
+  $attachments = array();
+  foreach ($settings as $component => $settings) {
+    foreach ($formats as $format) {
+      if ($plugin = @$settings[$format]) {
+        if ($attach = @$plugins[$component][$plugin]['attached']) {
+          $attachments = array_merge_recursive($attachments, $attach);
+        }
+      }
+    }
+  }
+  return $attachments;
 }
 
 /**
@@ -252,7 +207,7 @@ function ace_settings_form($form, $form_state) {
   $form['ace_path'] = array(
     '#type' => 'textfield',
     '#title' => t('Ace library path'),
-    '#default_value' => variable_get('ace_path', 'sites/all/libraries/ace'),
+    '#default_value' => variable_get('ace_path', 'sites/all/libraries/ace/lib/ace'),
   );
   $form['input_formats'] = _ace_input_formats($settings);
   $form['#theme'] = 'ace_settings';
@@ -289,6 +244,7 @@ function _ace_input_formats($settings) {
   return $input_formats;
 }
 
+
 function theme_ace_input_formats($form) {
   $table = array(
     'header' => array(
@@ -324,83 +280,45 @@ function ace_settings_form_validate(&$form, &$form_state) {
 
 function ace_get_plugins() {
   $plugins = array(
-    'modes' => _ace_modes(),
-    'themes' => _ace_themes(),
-    'toolbars' => _ace_toolbars(),
-    'keybindings' => _ace_keybindings(),
+    'modes' => array(
+      'ace/mode/html' => array('title' => 'HTML'),
+    ),
+    'themes' => array(
+      'ace/theme/chrome' => array('title' => 'Chrome'),
+      'ace/theme/clouds' => array('title' => 'Clouds'),
+      'ace/theme/clouds_midnight' => array('title' => 'Clouds Midnight'),
+      'ace/theme/cobalt' => array('title' => 'Cobalt'),
+      'ace/theme/crimson_editor' => array('title' => 'Crimson Editor'),
+      'ace/theme/dawn' => array('title' => 'Dawn'),
+      'ace/theme/dreamweaver' => array('title' => 'Dreamweaver'),
+      'ace/theme/eclipse' => array('title' => 'Eclipse'),
+      'ace/theme/idle_fingers' => array('title' => 'Idle Fingers'),
+      'ace/theme/kr_theme' => array('title' => 'KR Theme'),
+      'ace/theme/merbivore' => array('title' => 'Merbivore'),
+      'ace/theme/merbivore_soft' => array('title' => 'Merbivore Soft'),
+      'ace/theme/mono_industrial' => array('title' => 'Mono Industrial'),
+      'ace/theme/monokai' => array('title' => 'Monokai'),
+      'ace/theme/pastel_on_dark' => array('title' => 'Pastel on Dark'),
+      'ace/theme/solarized_dark' => array('title' => 'Solarized dark'),
+      'ace/theme/solarized_light' => array('title' => 'Solarized light'),
+      'ace/theme/textmate' => array('title' => 'TextMate'),
+      'ace/theme/tomorrow' => array('title' => 'Tomorrow'),
+      'ace/theme/tomorrow_night' => array('title' => 'Tomorrow Night'),
+      'ace/theme/tomorrow_night_blue' => array('title' => 'Tomorrow Night blue'),
+      'ace/theme/tomorrow_night_bright' => array('title' => 'Tomorrow Night bright'),
+      'ace/theme/tomorrow_night_eighties' => array('title' => 'Tomorrow Night eighties'),
+      'ace/theme/twilight' => array('title' => 'Twilight'),
+      'ace/theme/vibrant_ink' => array('title' => 'Vibrant Ink'),
+    ),
+    'toolbars' => array(
+      'ace/toolbar/default' => array('title' => 'No toolbar'),
+    ),
+    'keybindings' => array(
+      'ace/keyboard/keybinding/default' => array('title' => 'Default'),
+      'ace/keyboard/keybinding/vim' => array('title' => 'Vim'),
+      'ace/keyboard/keybinding/emacs' => array('title' => 'Emacs'),
+    ),
   );
-  $plugins['modes'] = _ace_modes();
   drupal_alter('ace_plugins', $plugins);
   return $plugins;
-}
-
-function _ace_modes() {
-  $ace_path = variable_get('ace_path', 'sites/all/libraries/ace');
-  $modefiles = glob($ace_path . '/mode-*.js');
-  $modes = array();
-  foreach ($modefiles as $file) {
-    if (preg_match('/mode-(.*?).js$/', $file, $matches)) {
-      $modes[$matches[1]] = array(
-        'title' => $matches[1],
-        'module' => 'ace/mode/' . $matches[1],
-        'attached' => array(
-          'js' => array($file),
-        ),
-      );
-    }
-  }
-  return $modes;
-}
-
-function _ace_themes() {
-  $ace_path = variable_get('ace_path', 'sites/all/libraries/ace');
-  $themefiles = glob($ace_path . '/theme-*.js');
-  $themes = array();
-  foreach ($themefiles as $file) {
-    if (preg_match('/theme-(.*?).js$/', $file, $matches)) {
-      $themes[$matches[1]] = array(
-        'title' => $matches[1],
-        'module' => 'ace/theme/' . $matches[1],
-        'attached' => array(
-          'js' => array($file),
-        ),
-      );
-    }
-  }
-  return $themes;
-}
-
-function _ace_toolbars() {
-  $toolbars = array(
-    'default' => array(
-      'title' => t('No toolbar'),
-      'module' => 'ace/toolbar/default',
-    ),
-  );
-  return $toolbars;
-}
-
-function _ace_keybindings() {
-  $ace_path = variable_get('ace_path', 'sites/all/libraries/ace');
-  $keybindings = array(
-    'default' => array(
-      'title' => t('Default'),
-      'module' => 'ace/keyboard/keybinding/default',
-    ),
-    'vim' => array(
-      'title' => t('Vim'),
-      'module' => 'ace/keyboard/keybinding/vim',
-      'attached' => array(
-        'js' => array($ace_path . '/keybinding-vim.js'),
-      ),
-    ),
-    'emacs' => array(
-      'title' => t('Emacs'),
-      'module' => 'ace/keyboard/keybinding/emacs',
-      'attached' => array(
-        'js' => array($ace_path . '/keybinding-emacs.js'),
-      ),
-    ),
-  );
-  return $keybindings;
 }
