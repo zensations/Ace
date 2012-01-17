@@ -1,4 +1,3 @@
-; $Id$
 name = Ace Editor
 description = "Replace Textareas with ACE Editor."
 package = content
