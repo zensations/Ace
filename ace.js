@@ -123,10 +123,14 @@
         $('code.drupdown-code', context).once().each(function() {
           var code = $.trim($(this).text());
           var lines = (code.split('\n'));
+          var line_count = 0;
+          for (var i = 0; i < lines.length; i++) {
+            line_count += Math.ceil(lines[i].length/80);
+          }
           var display_element = $('<div class="ace-display"></div>').insertAfter($(this).parent());
           var display = ace.edit(display_element[0]);
           display_element.css({
-            'height': display.renderer.lineHeight * code.split('\n').length,
+            'height': display.renderer.lineHeight * line_count,
             'width': 'auto',
             'position': 'relative'
           });
@@ -134,12 +138,15 @@
           display.setShowPrintMargin(false);
           display.setReadOnly(true);
           display.setHighlightActiveLine(false);
+          display.getSession().setUseWrapMode(true);
+          /*
           if ($(this).attr('data-language')) {
             var Mode = require('ace/mode/' + $(this).attr('data-language')).Mode;
             if (Mode) {
               display.getSession().setMode(new Mode());
             }
           }
+          */
           $(this).parent().remove();
         });
       });
