@@ -183,7 +183,7 @@ function ace_settings() {
 function ace_user_settings() {
   $settings = ace_settings();
   global $user;
-  if ($user->data && array_key_exists('ace', $user->data)) {
+  if (@$user->data && array_key_exists('ace', $user->data)) {
     $settings = _ace_settings_merge($settings, unserialize($user->data['ace']));
   }
   return $settings;
