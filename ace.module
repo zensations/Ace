@@ -149,7 +149,9 @@ function ace_form_user_profile_form_validate(&$form, &$form_state) {
  * Implements hook_user_presave().
  */
 function ace_user_presave(&$edit, $account, $category) {
-  $edit['data']['ace'] = $edit['ace'];
+  if (array_key_exists('ace', $edit)) {
+    $edit['data']['ace'] = $edit['ace'];
+  }
 }
 
 function _ace_default() {
@@ -184,7 +186,11 @@ function ace_user_settings() {
   $settings = ace_settings();
   global $user;
   if (@$user->data && array_key_exists('ace', $user->data)) {
-    $settings = _ace_settings_merge($settings, unserialize($user->data['ace']));
+    $user_config = unserialize($user->data['ace']);
+    if (!is_array($user_config)) {
+      $user_config = array();
+    }
+    $settings = _ace_settings_merge($settings, $user_config);
   }
   return $settings;
 }
