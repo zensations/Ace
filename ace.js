@@ -48,15 +48,9 @@
             var toolbar = settings.ace.toolbars[mode];
             var syntax = settings.ace.modes[mode];
             editor.setTheme(settings.ace.themes[mode]);
-            if (keybinding === 'ace/keyboard/keybinding/default') {
-              editor.setKeyboardHandler(null);
-            } else {
-              require([keybinding], function(name, keybindings) {
-                $.each(keybindings, function(name, keybinding) {
-                  editor.setKeyboardHandler(keybinding);
-                });
-              });
-            }
+            require([keybinding], function(keybinding) {
+              editor.setKeyboardHandler(keybinding.handler);
+            });
 
             toolbar_element.children().remove();
             toolbar_element.show();
@@ -151,6 +145,6 @@
         });
       });
       // process all textareas
-    } 
+    }
   };
 }(jQuery));

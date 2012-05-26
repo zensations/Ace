@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- * ace module primary implementation file 
+ * ace module primary implementation file
  */
 define('ACE_VERSION', '0.2.0');
 
@@ -320,9 +320,9 @@ function ace_get_plugins() {
       'ace/toolbar/default' => array('title' => 'No toolbar'),
     ),
     'keybindings' => array(
-      'ace/keyboard/keybinding/default' => array('title' => 'Default'),
-      'ace/keyboard/keybinding/vim' => array('title' => 'Vim'),
-      'ace/keyboard/keybinding/emacs' => array('title' => 'Emacs'),
+      'ace/keyboard/textinput' => array('title' => 'Text'),
+      'ace/keyboard/vim' => array('title' => 'Vim'),
+      'ace/keyboard/emacs' => array('title' => 'Emacs'),
     ),
   );
   drupal_alter('ace_plugins', $plugins);
