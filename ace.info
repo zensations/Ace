@@ -3,5 +3,5 @@ description = "Replace Textareas with ACE Editor."
 package = content
 version = 0.1
 core = 7.x
-dependencies[] = requirejs
 files[] = ace.module
+dependencies[] = requirejs

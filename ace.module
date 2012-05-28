@@ -1,27 +1,54 @@
 <?php
 /**
  * @file
- * ace module primary implementation file 
+ * Markdown inspired rich text input system.
  */
-define('ACE_VERSION', '0.2.0');
+
+// ======================================================================
+// SYSTEM INTEGRATION HOOKS
+// ======================================================================
+/**
+ * Implements hook_init().
+ */
+function ace_init() {
+  $settings = ace_user_settings();
+  drupal_add_js(array('ace' => $settings), 'setting');
+}
 
 /**
- * Implements hook_theme().
- * Adds a theme callback for input format configuration tables.
+ * Implements hook_menu().
  */
-function ace_theme() {
+function ace_menu() {
   return array(
-    'ace_input_formats' => array(
-      'render element' => 'form',
+    'admin/config/content/ace' => array(
+      'title' => 'Ace Editor',
+      'description' => 'Configure Ace editor for different input formats.',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('ace_settings_form'),
+      'access arguments' => array('administer site configuration'),
     ),
   );
 }
 
+/**
+ * Implements hook_permission().
+ */
+function ace_permission() {
+  return array(
+    'use ace editor' => array(
+      'title' => t('Use the Ace editor'),
+      'description' => t('Enables users to use the Ace editor instead of textareas.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_requirejs_paths().
+ */
 function ace_requirejs_paths() {
   return array(
-    'ace' => 'sites/all/libraries/ace/lib/ace',
-    'ace/toolbar/default' => drupal_get_path('module', 'ace') . '/toolbar',
-    'ace/keyboard/keybinding/default' => drupal_get_path('module', 'ace') . '/keybinding',
+    'ace' => libraries_get_path('ace') . '/lib/ace',
+    'drupal/ace/toolbar/default' => drupal_get_path('module', 'ace') . '/toolbar',
   );
 }
 
@@ -32,7 +59,7 @@ function ace_requirejs_paths() {
 function ace_library() {
   return array(
     'ace' => array(
-      'version' => '0.2.0',
+      'version' => 'master',
       'js' => array(
         drupal_get_path('module', 'ace') . '/ace.js' => array(),
       ),
@@ -56,6 +83,67 @@ function ace_element_info_alter(&$elements) {
   $elements['text_format']['#after_build'][] = 'ace_after_build_text_format';
 }
 
+/**
+ * Retrieves all available ace plugins.
+ */
+function ace_get_plugins() {
+  $cache = cache_get('ace_plugins');
+  if ($cache) {
+    return $cache->data;
+  }
+  $plugins = array(
+    'modes' => array(
+      'ace/mode/html' => array('title' => 'HTML'),
+    ),
+    'themes' => array(
+      'ace/theme/chrome' => array('title' => 'Chrome'),
+      'ace/theme/clouds' => array('title' => 'Clouds'),
+      'ace/theme/clouds_midnight' => array('title' => 'Clouds Midnight'),
+      'ace/theme/cobalt' => array('title' => 'Cobalt'),
+      'ace/theme/crimson_editor' => array('title' => 'Crimson Editor'),
+      'ace/theme/dawn' => array('title' => 'Dawn'),
+      'ace/theme/dreamweaver' => array('title' => 'Dreamweaver'),
+      'ace/theme/eclipse' => array('title' => 'Eclipse'),
+      'ace/theme/idle_fingers' => array('title' => 'Idle Fingers'),
+      'ace/theme/kr_theme' => array('title' => 'KR Theme'),
+      'ace/theme/merbivore' => array('title' => 'Merbivore'),
+      'ace/theme/merbivore_soft' => array('title' => 'Merbivore Soft'),
+      'ace/theme/mono_industrial' => array('title' => 'Mono Industrial'),
+      'ace/theme/monokai' => array('title' => 'Monokai'),
+      'ace/theme/pastel_on_dark' => array('title' => 'Pastel on Dark'),
+      'ace/theme/solarized_dark' => array('title' => 'Solarized dark'),
+      'ace/theme/solarized_light' => array('title' => 'Solarized light'),
+      'ace/theme/textmate' => array('title' => 'TextMate'),
+      'ace/theme/tomorrow' => array('title' => 'Tomorrow'),
+      'ace/theme/tomorrow_night' => array('title' => 'Tomorrow Night'),
+      'ace/theme/tomorrow_night_blue' => array('title' => 'Tomorrow Night blue'),
+      'ace/theme/tomorrow_night_bright' => array('title' => 'Tomorrow Night bright'),
+      'ace/theme/tomorrow_night_eighties' => array('title' => 'Tomorrow Night eighties'),
+      'ace/theme/twilight' => array('title' => 'Twilight'),
+      'ace/theme/vibrant_ink' => array('title' => 'Vibrant Ink'),
+    ),
+    'toolbars' => array(
+      'drupal/ace/toolbar/default' => array('title' => 'No toolbar'),
+    ),
+    'keybindings' => array(
+      'ace/keyboard/textinput' => array('title' => 'Default'),
+      'ace/keyboard/vim' => array('title' => 'Vim'),
+      'ace/keyboard/emacs' => array('title' => 'Emacs'),
+    ),
+  );
+  drupal_alter('ace_plugins', $plugins);
+
+  cache_set('ace_plugins', $plugins);
+  return $plugins;
+}
+
+// ======================================================================
+// FORM INTEGRATION
+// ======================================================================
+/**
+ * Process textarea and attach ace editor with input format defined in
+ * #ace_format.
+ */
 function ace_after_build_textarea($element) {
   if (array_key_exists('#ace_format', $element)) {
     $format = $element['#ace_format'];
@@ -67,6 +155,10 @@ function ace_after_build_textarea($element) {
   return $element;
 }
 
+/**
+ * Process formatted text widget and attach ace editor configuratios for
+ * every activated input format.
+ */
 function ace_after_build_text_format($element) {
   if (array_key_exists('format', $element)) {
     $element['#attached']['library'][] = array('ace', 'ace');
@@ -77,45 +169,56 @@ function ace_after_build_text_format($element) {
   return $element;
 }
 
+/**
+ * Calculate all required attachments and settings for an array of input
+ * formats.
+ *
+ * @param mixed $formats
+ *   array of input format identifiers
+ *
+ * @return mixed
+ *   array of attachments to be used in $form['#attached']
+ */
 function _ace_attachments($formats = array()) {
   $plugins = ace_get_plugins();
   $settings = ace_user_settings();
   $attachments = array();
+  $themes = array();
   foreach ($settings as $component => $settings) {
     foreach ($formats as $format) {
       if ($plugin = @$settings[$format]) {
         if ($attach = @$plugins[$component][$plugin]['attached']) {
           $attachments = array_merge_recursive($attachments, $attach);
         }
+        if (@array_key_exists('theme', @$plugins[$component][$plugin])) {
+          $plugins[$component][$plugin]['theme']['path'] = $plugin;
+          $themes[] = $plugins[$component][$plugin]['theme'];
+        }
       }
     }
   }
+  drupal_add_js(array('ace_themes' => $themes), 'setting');
   return $attachments;
 }
 
-/**
- * Implements hook_menu().
- */
-function ace_menu() {
-  return array(
-    'admin/config/content/ace' => array(
-      'title' => t('Ace Editor'),
-      'description' => t('Configure Ace editor for different input formats.'),
-      'page callback' => 'drupal_get_form',
-      'page arguments' => array('ace_settings_form'),
-      'access arguments' => array('administer site configuration'),
-    ),
-  );
-}
+
 
 /**
- * Implements hook_permission().
+ * Default values for input modes, toolbars, themes and keybindings.
  */
-function ace_permission() {
+function _ace_default() {
   return array(
-    'use ace editor' => array(
-      'title' => t('Use the Ace editor'),
-      'description' => t('Enables users to use the Ace editor instead of textareas.'),
+    'modes' => array(
+      'default' => 'ace/mode/text',
+    ),
+    'toolbars' => array(
+      'default' => 'drupal/ace/toolbar/default',
+    ),
+    'themes' => array(
+      'default' => 'ace/theme/textmate',
+    ),
+    'keybindings' => array(
+      'default' => 'ace/keyboard/textinput',
     ),
   );
 }
@@ -154,34 +257,26 @@ function ace_user_presave(&$edit, $account, $category) {
   }
 }
 
-function _ace_default() {
-  return array(
-    'modes' => array(
-      'default' => 'text',
-    ),
-    'toolbars' => array(
-      'default' => 'default',
-    ),
-    'themes' => array(
-      'default' => 'textmate',
-    ),
-    'keybindings' => array(
-      'default' => 'default',
-    ),
-  );
-}
-
-function ace_init() {
-  $settings = ace_user_settings();
-  drupal_add_js(array('ace' => $settings), 'setting');
-}
-
+/**
+ * Retrieve global ace settings.
+ *
+ * @return mixed
+ *   $settings
+ */
 function ace_settings() {
   $global = unserialize(variable_get('ace_configuration', serialize(array())));
   $settings = _ace_settings_merge(_ace_default(), $global);
   return $settings;
 }
 
+/**
+ * Retrieve user specific ace settings.
+ *
+ * @global type $user
+ *
+ * @return mixed
+ *   $settings
+ */
 function ace_user_settings() {
   $settings = ace_settings();
   global $user;
@@ -195,6 +290,17 @@ function ace_user_settings() {
   return $settings;
 }
 
+/**
+ * Helper function to merge ace settings.
+ *
+ * @param mixed $a
+ *   lower precedence - will be overridden by $b
+ * @param mixed $b
+ *   higher precedence
+ *
+ * @return mixed
+ *   $settings array
+ */
 function _ace_settings_merge($a, $b) {
   foreach ($b as $comp => $modes) {
     foreach ($modes as $mode => $setting) {
@@ -204,22 +310,24 @@ function _ace_settings_merge($a, $b) {
   return $a;
 }
 
+/**
+ * Provide the ace settings table.
+ * Implements hook_form().
+ */
 function ace_settings_form($form, $form_state) {
   $settings = ace_settings();
   $form['ace_configuration'] = array(
     '#type' => 'value',
     '#value' => serialize($settings),
   );
-  $form['ace_path'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Ace library path'),
-    '#default_value' => variable_get('ace_path', 'sites/all/libraries/ace/lib/ace'),
-  );
   $form['input_formats'] = _ace_input_formats($settings);
   $form['#theme'] = 'ace_settings';
   return system_settings_form($form);
 }
 
+/**
+ * Builds a form table with all available input formats.
+ */
 function _ace_input_formats($settings) {
   $components = array('modes', 'toolbars', 'themes', 'keybindings');
   $formats = filter_formats() + array(
@@ -232,7 +340,7 @@ function _ace_input_formats($settings) {
       $options[$component][$key] = $plugin['title'];
     }
   }
-
+  $input_formats = array();
   $input_formats['#theme'] = 'ace_input_formats';
   foreach ($formats as $id => $format) {
     $form['input_modes'][$id] = array(
@@ -250,7 +358,21 @@ function _ace_input_formats($settings) {
   return $input_formats;
 }
 
+/**
+ * Implements hook_theme().
+ * Adds a theme callback for input format configuration tables.
+ */
+function ace_theme() {
+  return array(
+    'ace_input_formats' => array(
+      'render element' => 'form',
+    ),
+  );
+}
 
+/**
+ * Theme the input format form table.
+ */
 function theme_ace_input_formats($form) {
   $table = array(
     'header' => array(
@@ -275,6 +397,10 @@ function theme_ace_input_formats($form) {
   return theme('table', $table);
 }
 
+/**
+ * Validate ace settings.
+ * Implements hook_form_validate().
+ */
 function ace_settings_form_validate(&$form, &$form_state) {
   foreach (array_keys($form_state['values']) as $key) {
     if (preg_match('/^ace\[/', $key)) {
@@ -282,49 +408,4 @@ function ace_settings_form_validate(&$form, &$form_state) {
     }
   }
   $form_state['values']['ace_configuration'] = serialize($form_state['input']['ace']);
-}
-
-function ace_get_plugins() {
-  $plugins = array(
-    'modes' => array(
-      'ace/mode/html' => array('title' => 'HTML'),
-    ),
-    'themes' => array(
-      'ace/theme/chrome' => array('title' => 'Chrome'),
-      'ace/theme/clouds' => array('title' => 'Clouds'),
-      'ace/theme/clouds_midnight' => array('title' => 'Clouds Midnight'),
-      'ace/theme/cobalt' => array('title' => 'Cobalt'),
-      'ace/theme/crimson_editor' => array('title' => 'Crimson Editor'),
-      'ace/theme/dawn' => array('title' => 'Dawn'),
-      'ace/theme/dreamweaver' => array('title' => 'Dreamweaver'),
-      'ace/theme/eclipse' => array('title' => 'Eclipse'),
-      'ace/theme/idle_fingers' => array('title' => 'Idle Fingers'),
-      'ace/theme/kr_theme' => array('title' => 'KR Theme'),
-      'ace/theme/merbivore' => array('title' => 'Merbivore'),
-      'ace/theme/merbivore_soft' => array('title' => 'Merbivore Soft'),
-      'ace/theme/mono_industrial' => array('title' => 'Mono Industrial'),
-      'ace/theme/monokai' => array('title' => 'Monokai'),
-      'ace/theme/pastel_on_dark' => array('title' => 'Pastel on Dark'),
-      'ace/theme/solarized_dark' => array('title' => 'Solarized dark'),
-      'ace/theme/solarized_light' => array('title' => 'Solarized light'),
-      'ace/theme/textmate' => array('title' => 'TextMate'),
-      'ace/theme/tomorrow' => array('title' => 'Tomorrow'),
-      'ace/theme/tomorrow_night' => array('title' => 'Tomorrow Night'),
-      'ace/theme/tomorrow_night_blue' => array('title' => 'Tomorrow Night blue'),
-      'ace/theme/tomorrow_night_bright' => array('title' => 'Tomorrow Night bright'),
-      'ace/theme/tomorrow_night_eighties' => array('title' => 'Tomorrow Night eighties'),
-      'ace/theme/twilight' => array('title' => 'Twilight'),
-      'ace/theme/vibrant_ink' => array('title' => 'Vibrant Ink'),
-    ),
-    'toolbars' => array(
-      'ace/toolbar/default' => array('title' => 'No toolbar'),
-    ),
-    'keybindings' => array(
-      'ace/keyboard/keybinding/default' => array('title' => 'Default'),
-      'ace/keyboard/keybinding/vim' => array('title' => 'Vim'),
-      'ace/keyboard/keybinding/emacs' => array('title' => 'Emacs'),
-    ),
-  );
-  drupal_alter('ace_plugins', $plugins);
-  return $plugins;
 }

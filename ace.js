@@ -1,12 +1,27 @@
 (function($) {
   Drupal.behaviors.ace = {
     attach: function (context, settings) {
-      require(['ace/ace'], function (ace) {
+      require(['ace/ace', 'ace/lib/dom'], function (ace, dom) {
+
+        if (Drupal.settings.ace_themes) {
+          $(Drupal.settings.ace_themes).each(function(path, theme) {
+            define(theme['path'], function(require, exports, module){
+              exports.isDark = theme['is-dark'];
+              exports.cssClass = theme['class'];
+              exports.cssText = '';
+              dom.importCssString(exports.cssText, exports.cssClass);
+            });
+          });
+        }
+
         $('.form-textarea-wrapper', context).once().each(function() {
           var textarea = $(this).find('textarea');
           // build and append editor element
-          var editor_element = $('<div class="ace-editor"></div>').insertAfter(textarea);
-          var toolbar_element = $('<div class="ace-toolbar ui-widget-header ui-corner-all"></div>');
+          var editor_element = $('<div class="ace-editor"></div>')
+            .insertAfter(textarea);
+          var toolbar_element = $(
+            '<div class="ace-toolbar ui-widget-header ui-corner-all"></div>'
+          );
           toolbar_element.insertBefore(editor_element);
           var editor = ace.edit(editor_element[0]);
           editor_element.css({
@@ -70,7 +85,8 @@
           if ($(textarea).attr('data-ace-format')) {
             input_mode = $(textarea).attr('data-ace-format');
           }
-          $('select.filter-list', $(this).parents('.text-format-wrapper')).each(function() {
+          $('select.filter-list', $(this).parents('.text-format-wrapper'))
+            .each(function() {
             input_mode = $(this).val();
             $(this).change(function(){
               input_mode = $(this).val();
@@ -85,7 +101,8 @@
           if ($(this).hasClass('resizable')) {
             $(this).find('.grippie').remove();
             var staticOffset = null;
-            var grippie = $('<div class="grippie"></div>').mousedown(startDrag);
+            var grippie = $('<div class="grippie"></div>');
+            grippie.mousedown(startDrag);
             grippie.insertAfter(editor_element);
             $(this).removeClass('resizable');
             $(this).addClass('resizable-textarea')
@@ -105,7 +122,9 @@
           }
 
           function endDrag(e) {
-            $(document).unbind('mousemove', performDrag).unbind('mouseup', endDrag);
+            $(document)
+              .unbind('mousemove', performDrag)
+              .unbind('mouseup', endDrag);
             editor_element.css('opacity', 1);
           }
 
@@ -121,7 +140,8 @@
           for (var i = 0; i < lines.length; i++) {
             line_count += Math.ceil(lines[i].length/80);
           }
-          var display_element = $('<div class="ace-display"></div>').insertAfter($(this).parent());
+          var display_element = $('<div class="ace-display"></div>')
+            .insertAfter($(this).parent());
           var display = ace.edit(display_element[0]);
           display_element.css({
             'height': display.renderer.lineHeight * line_count,
@@ -133,14 +153,12 @@
           display.setReadOnly(true);
           display.setHighlightActiveLine(false);
           display.getSession().setUseWrapMode(true);
-          /*
-          if ($(this).attr('data-language')) {
-            var Mode = require('ace/mode/' + $(this).attr('data-language')).Mode;
+          if ($(this).attr('data-ace-mode')) {
+            var Mode = require($(this).attr('data-ace-mode')).Mode;
             if (Mode) {
               display.getSession().setMode(new Mode());
             }
           }
-          */
           $(this).parent().remove();
         });
       });
