@@ -20,12 +20,12 @@
           var editor_element = $('<div class="ace-editor"></div>')
             .insertAfter(textarea);
           var toolbar_element = $(
-            '<div class="ace-toolbar ui-widget-header ui-corner-all"></div>'
+            '<div class="ace-toolbar"></div>'
           );
           toolbar_element.insertBefore(editor_element);
           var editor = ace.edit(editor_element[0]);
           editor_element.css({
-            'height': editor.renderer.lineHeight * $(textarea).attr('rows'),
+            'height': editor.renderer.lineHeight * $(textarea).attr('rows') + 5,
             'width': 'auto',
             'position': 'relative'
           });

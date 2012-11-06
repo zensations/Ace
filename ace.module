@@ -68,7 +68,6 @@ function ace_library() {
       ),
       'dependencies' => array(
         array('requirejs', 'requirejs'),
-        array('system', 'ui.button'),
       ),
     ),
   );
