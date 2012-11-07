@@ -24,11 +24,13 @@
           );
           toolbar_element.insertBefore(editor_element);
           var editor = ace.edit(editor_element[0]);
-          editor_element.css({
-            'height': editor.renderer.lineHeight * $(textarea).attr('rows') + 5,
-            'width': 'auto',
-            'position': 'relative'
-          });
+          window.setTimeout(function(){
+              editor_element.css({
+                  'height': editor.renderer.lineHeight * $(textarea).attr('rows') + 5,
+                  'width': 'auto',
+                  'position': 'relative'
+              });
+          }, 500);
 
           // hide print margin - we use full textarea width
           editor.setShowPrintMargin(false);
@@ -144,6 +146,8 @@
           var display_element = $('<div class="ace-display"></div>')
             .insertAfter($(this).parent());
           var display = ace.edit(display_element[0]);
+            window.alert(display.renderer.lineHeight);
+            window.alert(line_count);
           display_element.css({
             'height': display.renderer.lineHeight * line_count,
             'width': 'auto',
