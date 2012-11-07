@@ -134,6 +134,7 @@
 
         // process codeblocks
         $('code.drupdown-code', context).once().each(function() {
+          return;
           var code = $.trim($(this).text());
           var lines = (code.split('\n'));
           var line_count = 0;
