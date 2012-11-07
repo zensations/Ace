@@ -24,13 +24,11 @@
           );
           toolbar_element.insertBefore(editor_element);
           var editor = ace.edit(editor_element[0]);
-          window.setTimeout(function(){
-              editor_element.css({
-                  'height': editor.renderer.lineHeight * $(textarea).attr('rows') + 5,
-                  'width': 'auto',
-                  'position': 'relative'
-              });
-          }, 500);
+          editor_element.css({
+              'height': 22 * $(textarea).attr('rows') + 5,
+              'width': 'auto',
+              'position': 'relative'
+          });
 
           // hide print margin - we use full textarea width
           editor.setShowPrintMargin(false);
