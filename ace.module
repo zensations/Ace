@@ -12,6 +12,7 @@
  */
 function ace_init() {
   $settings = ace_user_settings();
+  dpm(ace_get_plugins());
   drupal_add_js(array('ace' => $settings), 'setting');
 }
 
@@ -61,13 +62,11 @@ function ace_library() {
     'ace' => array(
       'version' => 'master',
       'js' => array(
+        libraries_get_path('ace-builds') . '/src/ace.js' => array(),
         drupal_get_path('module', 'ace') . '/ace.js' => array(),
       ),
       'css' => array(
         drupal_get_path('module', 'ace') . '/ace.css' => array(),
-      ),
-      'dependencies' => array(
-        array('requirejs', 'requirejs'),
       ),
     ),
   );
@@ -87,49 +86,25 @@ function ace_element_info_alter(&$elements) {
  */
 function ace_get_plugins() {
   $cache = cache_get('ace_plugins');
+  /*
   if ($cache) {
     return $cache->data;
   }
-  $plugins = array(
-    'modes' => array(
-      'ace/mode/html' => array('title' => 'HTML'),
-    ),
-    'themes' => array(
-      'ace/theme/chrome' => array('title' => 'Chrome'),
-      'ace/theme/clouds' => array('title' => 'Clouds'),
-      'ace/theme/clouds_midnight' => array('title' => 'Clouds Midnight'),
-      'ace/theme/cobalt' => array('title' => 'Cobalt'),
-      'ace/theme/crimson_editor' => array('title' => 'Crimson Editor'),
-      'ace/theme/dawn' => array('title' => 'Dawn'),
-      'ace/theme/dreamweaver' => array('title' => 'Dreamweaver'),
-      'ace/theme/eclipse' => array('title' => 'Eclipse'),
-      'ace/theme/idle_fingers' => array('title' => 'Idle Fingers'),
-      'ace/theme/kr_theme' => array('title' => 'KR Theme'),
-      'ace/theme/merbivore' => array('title' => 'Merbivore'),
-      'ace/theme/merbivore_soft' => array('title' => 'Merbivore Soft'),
-      'ace/theme/mono_industrial' => array('title' => 'Mono Industrial'),
-      'ace/theme/monokai' => array('title' => 'Monokai'),
-      'ace/theme/pastel_on_dark' => array('title' => 'Pastel on Dark'),
-      'ace/theme/solarized_dark' => array('title' => 'Solarized dark'),
-      'ace/theme/solarized_light' => array('title' => 'Solarized light'),
-      'ace/theme/textmate' => array('title' => 'TextMate'),
-      'ace/theme/tomorrow' => array('title' => 'Tomorrow'),
-      'ace/theme/tomorrow_night' => array('title' => 'Tomorrow Night'),
-      'ace/theme/tomorrow_night_blue' => array('title' => 'Tomorrow Night blue'),
-      'ace/theme/tomorrow_night_bright' => array('title' => 'Tomorrow Night bright'),
-      'ace/theme/tomorrow_night_eighties' => array('title' => 'Tomorrow Night eighties'),
-      'ace/theme/twilight' => array('title' => 'Twilight'),
-      'ace/theme/vibrant_ink' => array('title' => 'Vibrant Ink'),
-    ),
-    'toolbars' => array(
-      'drupal/ace/toolbar/default' => array('title' => 'No toolbar'),
-    ),
-    'keybindings' => array(
-      'ace/keyboard/textinput' => array('title' => 'Default'),
-      'ace/keyboard/vim' => array('title' => 'Vim'),
-      'ace/keyboard/emacs' => array('title' => 'Emacs'),
-    ),
-  );
+  */
+  $path = libraries_get_path('ace-builds');
+  $files = glob($path . '/src/*.js');
+  $plugins = array();
+  foreach ($files as $file) {
+    if (preg_match('/(theme|mode|keybinding)\-(.*).js$/', $file, $matches)) {
+      $plugins[$matches[1] . 's']['ace/' . $matches[1] . '/' . $matches[2]] = array(
+        'title' => $matches[2],
+        'js' => array(
+          $file => array(),
+        ),
+      );
+    }
+  }
+  $plugins['keybindings']['ace/keyboard/textinput'] = array('title' => 'Default');
   drupal_alter('ace_plugins', $plugins);
 
   cache_set('ace_plugins', $plugins);

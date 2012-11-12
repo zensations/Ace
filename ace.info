@@ -4,4 +4,3 @@ package = content
 version = 0.1
 core = 7.x
 files[] = ace.module
-dependencies[] = requirejs

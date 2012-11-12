@@ -70,14 +70,18 @@
             toolbar_element.children().remove();
             toolbar_element.show();
             require([toolbar], function(toolbars) {
-              $.each(toolbars, function(name, Toolbar) {
-                (new Toolbar(toolbar_element, editor, mode)).render();
-              });
+              if (toolbars) {
+                $.each(toolbars, function(name, Toolbar) {
+                  (new Toolbar(toolbar_element, editor, mode)).render();
+                });
+              }
             });
             require([syntax], function(modes) {
-              $.each(modes, function(name, Mode){
-                editor.getSession().setMode(new Mode());
-              });
+              if (modes) {
+                $.each(modes, function(name, Mode){
+                  editor.getSession().setMode(new Mode());
+                });
+              }
             });
           }
 
