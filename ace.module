@@ -12,7 +12,6 @@
  */
 function ace_init() {
   $settings = ace_user_settings();
-  dpm(ace_get_plugins());
   drupal_add_js(array('ace' => $settings), 'setting');
 }
 
