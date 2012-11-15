@@ -97,12 +97,22 @@ function ace_get_plugins() {
     if (preg_match('/(theme|mode|keybinding)\-(.*).js$/', $file, $matches)) {
       $plugins[$matches[1] . 's']['ace/' . $matches[1] . '/' . $matches[2]] = array(
         'title' => $matches[2],
-        'js' => array(
-          $file => array(),
+        'attached' => array(
+          'js' => array(
+            $file => array(),
+          ),
         ),
       );
     }
   }
+  $plugins['toolbars']['drupal/ace/toolbar/default'] = array(
+    'title' => t('No toolbar'),
+    'attached' => array(
+      'js' => array(
+        drupal_get_path('module', 'ace') . '/toolbar.js' => array(),
+      ),
+    ),
+  );
   $plugins['keybindings']['ace/keyboard/textinput'] = array('title' => 'Default');
   drupal_alter('ace_plugins', $plugins);
 
