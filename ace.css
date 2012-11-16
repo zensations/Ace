@@ -7,6 +7,52 @@
 }
 
 .ace-toolbar {
-  padding: 0.2em;
   margin-bottom: 0.3em;
 }
+.ace-toolbar-buttonset {
+  display: inline;
+}
+
+.ace-button-bar {
+  background: #DDD;
+  padding: 0.4em;
+}
+
+.ace-toolbar-button {
+  padding: 0.1em 0.6em;
+  display: inline-block;
+  *zoom: 1;
+  *display: inline;
+  background: #CCC;
+  margin-right: 0.5em;
+}
+
+.ace-dialog {
+  width: 100%;
+  background: #DDD;
+  position: absolute;
+  z-index: 10;
+  padding: 0.5em 0;
+}
+
+.ace-dialog div,
+.ace-dialog label,
+.ace-dialog input,
+.ace-dialog select {
+  display: inline;
+}
+
+.ace-dialog .ace-dialog-content input,
+.ace-dialog .ace-dialog-content select,
+.ace-dialog .ace-dialog-content button {
+  margin-left: 0.5em;
+}
+
+.ace-dialog .ace-dialog-content label {
+  margin-left: 1em;
+}
+
+.ace-dialog label:after {
+  content: ':';
+}
+

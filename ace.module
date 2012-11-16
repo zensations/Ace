@@ -62,6 +62,7 @@ function ace_library() {
       'version' => 'master',
       'js' => array(
         libraries_get_path('ace-builds') . '/src/ace.js' => array(),
+        drupal_get_path('module', 'ace') . '/toolbar.js' => array(),
         drupal_get_path('module', 'ace') . '/ace.js' => array(),
       ),
       'css' => array(
@@ -85,17 +86,19 @@ function ace_element_info_alter(&$elements) {
  */
 function ace_get_plugins() {
   $cache = cache_get('ace_plugins');
-  /*
   if ($cache) {
     return $cache->data;
   }
-  */
   $path = libraries_get_path('ace-builds');
   $files = glob($path . '/src/*.js');
   $plugins = array();
   foreach ($files as $file) {
     if (preg_match('/(theme|mode|keybinding)\-(.*).js$/', $file, $matches)) {
-      $plugins[$matches[1] . 's']['ace/' . $matches[1] . '/' . $matches[2]] = array(
+      $package = 'ace/' . $matches[1] . '/' . $matches[2];
+      if ($matches[1] == 'keybinding') {
+        $package = 'ace/keyboard/' . $matches[2];
+      }
+      $plugins[$matches[1] . 's'][$package] = array(
         'title' => $matches[2],
         'attached' => array(
           'js' => array(

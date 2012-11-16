@@ -57,30 +57,45 @@
             editor.resize();
           });
 
+          function error(msg) {
+            if (console && $.isFunction(console.error)) {
+              console.error(msg);
+            }
+          }
+
           function setupEditor(mode) {
-            var theme = settings.ace.themes[mode];
-            var keybinding = settings.ace.keybindings[mode];
-            var toolbar = settings.ace.toolbars[mode];
-            var syntax = settings.ace.modes[mode];
             editor.setTheme(settings.ace.themes[mode]);
-            require([keybinding], function(keybinding) {
-              editor.setKeyboardHandler(keybinding.handler);
+            require([settings.ace.keybindings[mode]], function(keybinding) {
+              if (keybinding) {
+                editor.setKeyboardHandler(keybinding.handler);
+              }
+              else {
+                error('Keybinding not available');
+              }
             });
 
             toolbar_element.children().remove();
             toolbar_element.show();
-            require([toolbar], function(toolbars) {
+            require([settings.ace.toolbars[mode]], function(toolbars) {
               if (toolbars) {
                 $.each(toolbars, function(name, Toolbar) {
-                  (new Toolbar(toolbar_element, editor, mode)).render();
+                  var toolbar = new Toolbar();
+                  toolbar.setup(toolbar_element, editor, mode);
+                  toolbar.render();
                 });
               }
+              else {
+                error('Toolbar not available');
+              }
             });
-            require([syntax], function(modes) {
+            require([settings.ace.modes[mode]], function(modes) {
               if (modes) {
                 $.each(modes, function(name, Mode){
                   editor.getSession().setMode(new Mode());
                 });
+              }
+              else {
+                error('Mode not available');
               }
             });
           }
