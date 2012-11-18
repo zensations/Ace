@@ -13,9 +13,14 @@
   display: inline;
 }
 
+.ace-toolbar-buttonset > div {
+  white-space: nowrap;
+}
+
 .ace-button-bar {
   background: #DDD;
   padding: 0.4em;
+  padding-bottom: 0;
 }
 
 .ace-toolbar-button {
@@ -25,6 +30,7 @@
   *display: inline;
   background: #CCC;
   margin-right: 0.5em;
+  margin-bottom: 0.4em;
 }
 
 .ace-dialog {
