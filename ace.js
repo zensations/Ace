@@ -39,6 +39,9 @@
           // enable word wrap
           editor.getSession().setUseWrapMode(true);
 
+          // tab size is 2
+          editor.getSession().setTabSize(2);
+
           // use soft tabs
           editor.getSession().setUseSoftTabs(true);
 

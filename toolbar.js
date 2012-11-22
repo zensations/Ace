@@ -102,9 +102,9 @@
   });
 
   $(document).bind('acedialogshow', function(event, form){
-    $(form).fadeIn();
+    $(form).show();
   });
   $(document).bind('acedialoghide', function(event, form){
-    $(form).fadeOut();
+    $(form).hide();
   });
 }(jQuery));
