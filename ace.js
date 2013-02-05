@@ -87,6 +87,13 @@
               else {
                 error('Toolbar not available');
               }
+
+              if ($('div.ace-button-bar', toolbar_element).children().length === 0) {
+                toolbar_element.hide();
+              }
+              else {
+                toolbar_element.show();
+              }
             });
             require([settings.ace.modes[mode]], function(modes) {
               if (modes) {
